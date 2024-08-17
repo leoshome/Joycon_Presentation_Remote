@@ -4,6 +4,7 @@ from time import sleep, time
 from pyjoycon import JoyCon, get_R_id, GyroTrackingJoyCon
 import win32gui
 import win32con
+import sys
 
 # parameter define
 RADIUS = 200      # circle size
@@ -13,20 +14,23 @@ ALPHA_BACKGROUND = 0.7 # opacity of balck background(form 0 to 1, 0 is no effect
 ALPHA_HIGHTLIGHT = 0.3 # opacity of yellow circle(form 0 to 1, 0 is no color)
 
 pyautogui.FAILSAFE = False # prevent FailSafeException when cursor move to corner
-
-# init joycon controller state
-joycon_id = get_R_id()
-joycon = JoyCon(*joycon_id)
-state = joycon.get_status()
-sleep(1)
-joycon_gyro = GyroTrackingJoyCon(*joycon_id)
-joycon_gyro.reset_orientation()
-state_gyro = joycon_gyro.pointer
-pre_pos_x = state_gyro[0]
-pre_pos_y = -state_gyro[1]
-mode = MODE
-previous_x = previous_y = previous_a = previous_b = previous_sr = previous_sl = previous_plus = 0
-screen_width, screen_height = pyautogui.size()
+try:
+    # init joycon controller state
+    joycon_id = get_R_id()
+    joycon = JoyCon(*joycon_id)
+    state = joycon.get_status()
+    sleep(1)
+    joycon_gyro = GyroTrackingJoyCon(*joycon_id)
+    joycon_gyro.reset_orientation()
+    state_gyro = joycon_gyro.pointer
+    pre_pos_x = state_gyro[0]
+    pre_pos_y = -state_gyro[1]
+    mode = MODE
+    previous_x = previous_y = previous_a = previous_b = previous_sr = previous_sl = previous_plus = 0
+    screen_width, screen_height = pyautogui.size()
+except Exception as e:
+    print(f"An error occurred: {e} and exit")
+    sys.exit()
 
 def _create_circle(self, x, y, r, **kwargs):
     return self.create_oval(x-r, y-r, x+r, y+r, **kwargs)
@@ -43,17 +47,18 @@ def setClickthrough(hwnd):             # https://stackoverflow.com/questions/675
     except Exception as e:
         print(e)
 
+def disableClickthrough(hwnd,screen_width,screen_height):             # https://stackoverflow.com/questions/67544105/click-through-tkinter-windows
+    try:
+        win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, 0)
+        win32gui.SetWindowPos(hwnd, win32con.HWND_TOPMOST, 0, 0, screen_width, screen_height, 0)  # change for black background as transparent
+    except Exception as e:
+        print(e)
+
 tk.Canvas.create_circle = _create_circle
 root = tk.Tk()
-root.attributes('-alpha',0.5)
-root.attributes('-transparentcolor', '#000000', '-topmost', 1)  # for setClickthrough
-root.config(background='#000000')                               # for setClickthrough
 canvas = tk.Canvas(root, width=screen_width, height=screen_height,highlightthickness=0 ,background='#000000')
 canvas.pack()
 root.overrideredirect(True)
-root.wm_attributes('-transparentcolor','yellow') # make yellow color as transparent
-root.wm_attributes('-topmost', True)
-setClickthrough(canvas.winfo_id())
 
 if state['battery']['level'] == 1 :
     # show battery low in screen
@@ -127,10 +132,23 @@ def move_circle_per():
             # black background for Spotlight mode
             root.wm_attributes('-transparentcolor','yellow') # make yellow color as transparent to spotlight effect
             root.attributes('-alpha',ALPHA_BACKGROUND)  # make circle disappeared
+            #root.attributes('-transparentcolor', '#000000', '-topmost', 1)  # for setClickthrough
+            #root.config(background='')                               # for setClickthrough
+            #root.attributes('-transparentcolor', 'yellow', '-topmost', 1)  # for setClickthrough
+            #root.config(background='yellow')                               # for setClickthrough
+            disableClickthrough(canvas.winfo_id(),pyautogui.size()[0],pyautogui.size()[1])
+            
         else:        
             # yellow circle for Hightlight mode
             root.wm_attributes('-transparentcolor','#000000') # make yellow color as transparent to spotlight effect
             root.attributes('-alpha',ALPHA_HIGHTLIGHT)  # make circle disappeared
+            #root.attributes('-transparentcolor', '#000000', '-topmost', 1)  # for setClickthrough
+            #root.config(background='#000000')                               # for setClickthrough
+            #setClickthrough(canvas.winfo_id())
+            root.attributes('-transparentcolor', '#000000', '-topmost', 1)  # for setClickthrough
+            root.config(background='#000000')                               # for setClickthrough
+            setClickthrough(canvas.winfo_id())
+
 
         # start draw cirle around mouse cursor
         x, y = pyautogui.position()
