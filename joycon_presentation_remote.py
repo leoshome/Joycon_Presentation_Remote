@@ -2,6 +2,8 @@ import tkinter as tk
 import pyautogui
 from time import sleep, time
 from pyjoycon import JoyCon, get_R_id, GyroTrackingJoyCon
+import win32gui
+import win32con
 
 # parameter define
 RADIUS = 200      # circle size
@@ -19,24 +21,39 @@ state = joycon.get_status()
 sleep(1)
 joycon_gyro = GyroTrackingJoyCon(*joycon_id)
 joycon_gyro.reset_orientation()
-state_gyro = joycon_gyro.direction
-pre_pos_x = state_gyro[1]
-pre_pos_y = state_gyro[2]
+state_gyro = joycon_gyro.pointer
+pre_pos_x = state_gyro[0]
+pre_pos_y = -state_gyro[1]
 mode = MODE
-previous_x = previous_y = previous_a = previous_b = previous_sr = previous_sl = 0
+previous_x = previous_y = previous_a = previous_b = previous_sr = previous_sl = previous_plus = 0
 screen_width, screen_height = pyautogui.size()
 
 def _create_circle(self, x, y, r, **kwargs):
     return self.create_oval(x-r, y-r, x+r, y+r, **kwargs)
 
+def setClickthrough(hwnd):             # https://stackoverflow.com/questions/67544105/click-through-tkinter-windows
+    #print("setting window properties")
+    try:
+        styles = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        styles = win32con.WS_EX_LAYERED | win32con.WS_EX_TRANSPARENT
+        win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, styles)
+        #win32gui.SetLayeredWindowAttributes(hwnd, 0, 255, win32con.LWA_ALPHA)
+        #win32gui.SetLayeredWindowAttributes(hwnd, 0, 255, win32con.LWA_ALPHA | win32con.LWA_COLORKEY)
+        win32gui.SetLayeredWindowAttributes(hwnd, 0, 255, win32con.LWA_COLORKEY)  # change for black background as transparent
+    except Exception as e:
+        print(e)
+
 tk.Canvas.create_circle = _create_circle
 root = tk.Tk()
-root.attributes('-alpha',0)
+root.attributes('-alpha',0.5)
+root.attributes('-transparentcolor', '#000000', '-topmost', 1)  # for setClickthrough
+root.config(background='#000000')                               # for setClickthrough
 canvas = tk.Canvas(root, width=screen_width, height=screen_height,highlightthickness=0 ,background='#000000')
 canvas.pack()
 root.overrideredirect(True)
 root.wm_attributes('-transparentcolor','yellow') # make yellow color as transparent
 root.wm_attributes('-topmost', True)
+setClickthrough(canvas.winfo_id())
 
 if state['battery']['level'] == 1 :
     # show battery low in screen
@@ -55,7 +72,7 @@ def move_circle_per():
     cur_pos_y = -state_gyro[1]
 
     global pre_pos_x, pre_pos_y
-    global previous_x, previous_y, previous_a, previous_b, previous_sr
+    global previous_x, previous_y, previous_a, previous_b, previous_sr, previous_plus
     global mode
     
     move_x = cur_pos_x - pre_pos_x
@@ -90,26 +107,20 @@ def move_circle_per():
             mode = 0 if mode else 1  
 
 
-    if state['buttons']['shared']['plus']:
+    if state['buttons']['shared']['plus'] != previous_plus: 
         print("Pressed Plus and reset")
-        joycon_gyro.reset_orientation()     
-
+        previous_plus = state['buttons']['shared']['plus']
+        if state['buttons']['shared']['plus']:
+            joycon_gyro.reset_orientation()  
+   
     if state['buttons']['shared']['home']:
         print("Pressed Home and Exiting")
         root.destroy()
         return     
 
     if state['buttons']['right']['r'] or state['buttons']['right']['zr']:
-        if abs(move_x)>0.00001:
-            dx = int( move_x*MOVE_SPEED )
-        else:
-            dx = 0
-
-        if abs(move_y)>0.00001:
-            dy = int( move_y*MOVE_SPEED )
-        else:
-            dy = 0
-        
+        dx = int( move_x*MOVE_SPEED )
+        dy = int( move_y*MOVE_SPEED )    
         pyautogui.moveRel(dx,dy, _pause=False)      
 
         if mode == 0: 
@@ -126,8 +137,8 @@ def move_circle_per():
         canvas.coords(circle, x-RADIUS, y-RADIUS, x+RADIUS, y+RADIUS)
     else: 
         root.attributes('-alpha',0) # remove effect by using alpha
-    canvas.after(20,move_circle_per)    # make a loop 
+    canvas.after(10,move_circle_per)    # make a loop 
 
-canvas.after(20,move_circle_per)        # make a loop 
+canvas.after(10,move_circle_per)        # make a loop 
 
 root.mainloop()
