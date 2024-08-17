@@ -159,4 +159,7 @@ def move_circle_per():
 
 canvas.after(10,move_circle_per)        # make a loop 
 
+print("Joycon presentation remote is ready!!!")
+print("Please start your presentation")
+
 root.mainloop()
