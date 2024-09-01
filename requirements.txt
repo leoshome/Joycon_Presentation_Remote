@@ -1,0 +1,5 @@
+hidapi 
+pyglm
+joycon-python
+pyautogui
+pywin32
